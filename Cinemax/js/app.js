@@ -1,4 +1,14 @@
 /* CinemaMax - Vanilla JS */
+// Khi deploy frontend lên Vercel, cần gọi API từ backend deploy riêng (vd. Render/Railway/Fly)
+(function () {
+  var h = (typeof window !== 'undefined' && window.location && window.location.hostname) ? window.location.hostname : '';
+  // Cho phép override thủ công: đặt window.API_BASE trước khi load file này (hoặc trong DevTools)
+  if (typeof window !== 'undefined' && window.API_BASE !== undefined) return;
+  if (h === 'localhost' || h === '127.0.0.1') window.API_BASE = '';
+  else if (h && h.indexOf('vercel.app') !== -1) window.API_BASE = 'https://cinemax-jj8i.onrender.com';
+  else window.API_BASE = '';
+})();
+
 var App = (function () {
   var data = null;
   var CUSTOMER = '/customer';
@@ -10,7 +20,8 @@ var App = (function () {
 
   function fetchData() {
     var base = getBase();
-    return fetch('/api/data').then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+    var apiBase = window.API_BASE || '';
+    return fetch(apiBase + '/api/data').then(function (r) { return r.ok ? r.json() : Promise.reject(); })
       .catch(function () { return fetch(base + '/js/data.json').then(function (r) { return r.json(); }); })
       .then(function (d) { data = d; return data; });
   }
@@ -36,6 +47,13 @@ var App = (function () {
   function renderHeader(active) {
     var nav = document.getElementById('customer-header-nav');
     if (!nav) return;
+    var user;
+    try {
+      user = sessionStorage.getItem('user') || localStorage.getItem('user');
+      user = user ? JSON.parse(user) : null;
+    } catch (e) {
+      user = null;
+    }
     var links = [
       { path: CUSTOMER + '/index.html', label: 'Trang chủ', key: 'home' },
       { path: CUSTOMER + '/movies.html', label: 'Phim', key: 'movies' },
@@ -45,6 +63,28 @@ var App = (function () {
       var cls = (active === l.key || (l.key === 'home' && !active)) ? ' class="active"' : '';
       return '<a href="' + l.path + '"' + cls + '>' + l.label + '</a>';
     }).join('');
+    // Cập nhật khu vực tài khoản ở header nếu có
+    var headerEl = nav.parentNode && nav.parentNode.parentNode;
+    if (headerEl) {
+      var actions = headerEl.querySelector('.header-actions');
+      if (actions && user) {
+        var name = user.name || user.email || 'Tài khoản';
+        actions.innerHTML =
+          '<div class="search-wrap"><input type="text" placeholder="Tìm phim..." aria-label="Tìm phim"></div>' +
+          '<span class="btn btn-ghost btn-icon" aria-label="Tài khoản">👤 ' + name + '</span>' +
+          '<button type="button" class="btn btn-ghost" id="btn-logout">Đăng xuất</button>';
+        var logoutBtn = document.getElementById('btn-logout');
+        if (logoutBtn) {
+          logoutBtn.onclick = function () {
+            try {
+              sessionStorage.removeItem('user');
+              localStorage.removeItem('user');
+            } catch (e) {}
+            window.location.href = CUSTOMER + '/login.html';
+          };
+        }
+      }
+    }
   }
 
   function renderFooter() {

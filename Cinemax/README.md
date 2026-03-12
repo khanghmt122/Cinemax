@@ -57,3 +57,32 @@ python -m http.server 8080
 - **Trang khách:** `/` hoặc `/customer/index.html`
 - **Đăng nhập:** `/customer/login.html`
 - **Admin:** `/admin/`
+
+## Deploy để vẫn lưu MongoDB (Vercel + Backend riêng)
+
+Vercel chỉ host **static** (HTML/CSS/JS). Muốn **đăng ký/đăng nhập lưu MongoDB** thì bạn phải deploy backend Node (Express) chạy ở nơi khác (vd. Render/Railway/Fly) và để frontend gọi sang đó.
+
+### Bước 1: Deploy backend lên Render
+
+- Vào [Render](https://render.com) → **New** → **Web Service**
+- Connect GitHub repo
+- **Root Directory**: `Cinemax/server`
+- **Build Command**: `npm install`
+- **Start Command**: `npm start`
+- **Environment Variables**:
+  - `MONGO_URI`: connection string MongoDB Atlas
+- Deploy xong bạn sẽ có URL dạng `https://<service-name>.onrender.com`
+
+### Bước 2: Trỏ frontend sang backend
+
+Trong `js/app.js` đã có `window.API_BASE`:
+- Localhost: `API_BASE = ''` (gọi cùng domain)
+- Domain `vercel.app`: mặc định `API_BASE = 'https://cinemax-jj8i.onrender.com'`
+
+Nếu URL backend của bạn khác, hãy sửa trong `js/app.js` dòng:
+- `window.API_BASE = 'https://cinemax-jj8i.onrender.com';`
+thành URL thật của backend (Render/Railway/Fly) của bạn.
+
+### Bước 3: Deploy frontend lên Vercel
+
+Deploy folder `Cinemax/` lên Vercel như bình thường. Sau đó mở site Vercel và thử **Đăng ký** → dữ liệu sẽ được lưu vào MongoDB Atlas thông qua backend.

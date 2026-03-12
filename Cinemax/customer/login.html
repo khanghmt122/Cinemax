@@ -33,7 +33,7 @@
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
               <label class="checkbox-label">
-                <input type="checkbox"> Ghi nhớ đăng nhập
+                <input type="checkbox" id="remember-me"> Ghi nhớ đăng nhập
               </label>
               <a href="#" class="link-red">Quên mật khẩu?</a>
             </div>
@@ -79,6 +79,11 @@
   <script>
     (function () {
       App.fetchData().then(function () {});
+      try {
+        // Nếu đã ghi nhớ đăng nhập, khôi phục sessionStorage để các trang khác dùng chung
+        var raw = localStorage.getItem('user');
+        if (raw && !sessionStorage.getItem('user')) sessionStorage.setItem('user', raw);
+      } catch (e) {}
       document.querySelectorAll('.tab-trigger').forEach(function (btn) {
         btn.onclick = function () {
           document.querySelectorAll('.tab-trigger').forEach(function (b) { b.classList.remove('active'); });
@@ -91,16 +96,76 @@
       document.getElementById('form-login').onsubmit = function (e) {
         e.preventDefault();
         var btn = this.querySelector('button[type="submit"]');
+        var email = document.getElementById('login-email').value.trim();
+        var password = document.getElementById('login-password').value;
+        var remember = document.getElementById('remember-me').checked;
+        if (!email || !password) { alert('Vui lòng nhập đủ email và mật khẩu.'); return; }
+        if (password.length < 6) { alert('Mật khẩu phải có ít nhất 6 ký tự.'); return; }
         btn.disabled = true;
         btn.textContent = 'Đang đăng nhập...';
-        setTimeout(function () { window.location.href = 'index.html'; }, 1000);
+        fetch((window.API_BASE || '') + '/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, password: password })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res && res.success && res.user) {
+              try {
+                sessionStorage.setItem('user', JSON.stringify(res.user));
+                if (remember) localStorage.setItem('user', JSON.stringify(res.user));
+                else localStorage.removeItem('user');
+              } catch (err) {}
+              window.location.href = res.user.role === 'admin' ? '../admin/index.html' : 'index.html';
+              return;
+            }
+            btn.disabled = false;
+            btn.textContent = 'Đăng nhập';
+            alert((res && res.message) || 'Đăng nhập thất bại.');
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Đăng nhập';
+            alert('Không kết nối được server.');
+          });
       };
       document.getElementById('form-register').onsubmit = function (e) {
         e.preventDefault();
         var btn = this.querySelector('button[type="submit"]');
+        var name = document.getElementById('reg-name').value.trim();
+        var email = document.getElementById('reg-email').value.trim();
+        var phone = document.getElementById('reg-phone').value.trim();
+        var password = document.getElementById('reg-password').value;
+        var confirm = document.getElementById('reg-confirm').value;
+        if (!name || !email || !phone || !password || !confirm) { alert('Vui lòng nhập đủ thông tin.'); return; }
+        if (name.length < 2) { alert('Họ và tên phải có ít nhất 2 ký tự.'); return; }
+        if (password.length < 6) { alert('Mật khẩu phải có ít nhất 6 ký tự.'); return; }
+        if (password !== confirm) { alert('Xác nhận mật khẩu không khớp.'); return; }
         btn.disabled = true;
         btn.textContent = 'Đang đăng ký...';
-        setTimeout(function () { window.location.href = 'index.html'; }, 1000);
+        fetch((window.API_BASE || '') + '/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, email: email, phone: phone, password: password })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res && res.success) {
+              alert('Đăng ký thành công. Vui lòng đăng nhập.');
+              btn.disabled = false;
+              btn.textContent = 'Đăng ký';
+              document.querySelector('.tab-trigger[data-tab="login"]').click();
+              return;
+            }
+            btn.disabled = false;
+            btn.textContent = 'Đăng ký';
+            alert((res && res.message) || 'Đăng ký thất bại.');
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.textContent = 'Đăng ký';
+            alert('Không kết nối được server.');
+          });
       };
     })();
   </script>
