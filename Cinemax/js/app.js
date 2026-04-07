@@ -67,21 +67,26 @@ var App = (function () {
     var headerEl = nav.parentNode && nav.parentNode.parentNode;
     if (headerEl) {
       var actions = headerEl.querySelector('.header-actions');
-      if (actions && user) {
-        var name = user.name || user.email || 'Tài khoản';
-        actions.innerHTML =
-          '<div class="search-wrap"><input type="text" placeholder="Tìm phim..." aria-label="Tìm phim"></div>' +
-          '<span class="btn btn-ghost btn-icon" aria-label="Tài khoản">👤 ' + name + '</span>' +
-          '<button type="button" class="btn btn-ghost" id="btn-logout">Đăng xuất</button>';
-        var logoutBtn = document.getElementById('btn-logout');
-        if (logoutBtn) {
-          logoutBtn.onclick = function () {
-            try {
-              sessionStorage.removeItem('user');
-              localStorage.removeItem('user');
-            } catch (e) {}
-            window.location.href = CUSTOMER + '/login.html';
-          };
+      if (actions) {
+        if (user) {
+          var name = user.name || user.email || 'Tài khoản';
+          actions.innerHTML =
+            '<div class="search-wrap"><input type="text" placeholder="Tìm phim..." aria-label="Tìm phim"></div>' +
+            '<span class="btn btn-ghost btn-icon" aria-label="Tài khoản">👤 ' + name + '</span>' +
+            '<button type="button" class="btn btn-ghost" id="btn-logout">Đăng xuất</button>';
+          var logoutBtn = document.getElementById('btn-logout');
+          if (logoutBtn) {
+            logoutBtn.onclick = function () {
+              try {
+                sessionStorage.removeItem('user');
+                localStorage.removeItem('user');
+              } catch (e) {}
+              window.location.href = CUSTOMER + '/login.html';
+            };
+          }
+        } else {
+          var loginBtn = actions.querySelector('a.btn[href*="login"], a.btn[href="/login.html"]');
+          if (loginBtn) loginBtn.setAttribute('href', CUSTOMER + '/login.html');
         }
       }
     }

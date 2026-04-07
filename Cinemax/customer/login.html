@@ -9,11 +9,11 @@
 <body class="login-page">
   <div class="login-box">
     <div class="login-logo">
-      <a href="index.html" class="logo" style="font-size:1.5rem">
+      <a href="/customer/index.html" class="logo" style="font-size:1.5rem">
         <span class="logo-icon">🎬</span>
         <span>CinemaMax</span>
       </a>
-      <a href="index.html" class="btn btn-ghost">← Về trang chủ</a>
+      <a href="/customer/index.html" class="btn btn-ghost">← Về trang chủ</a>
     </div>
     <div class="tabs">
       <div class="tabs-list">
@@ -116,7 +116,7 @@
                 if (remember) localStorage.setItem('user', JSON.stringify(res.user));
                 else localStorage.removeItem('user');
               } catch (err) {}
-              window.location.href = res.user.role === 'admin' ? '../admin/index.html' : 'index.html';
+              window.location.href = res.user.role === 'admin' ? '/admin/index.html' : '/customer/index.html';
               return;
             }
             btn.disabled = false;

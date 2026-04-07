@@ -9,6 +9,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const app = express();
@@ -37,7 +38,7 @@ mongoose
 const userSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }, // demo: lưu plain, thực tế cần hash
+    password: { type: String, required: true }, // hash
     name: { type: String, required: true },
     phone: { type: String },
     role: { type: String, default: 'user', enum: ['admin', 'user'] }
@@ -50,17 +51,19 @@ const User = mongoose.model('User', userSchema);
 async function ensureSeedUsers() {
   const count = await User.estimatedDocumentCount();
   if (count > 0) return;
+  const adminHash = await bcrypt.hash('admin123', 10);
+  const userHash = await bcrypt.hash('user123', 10);
   const seed = [
     {
       email: 'admin@cinemamax.vn',
-      password: 'admin123',
+      password: adminHash,
       name: 'CinemaMax Admin',
       phone: '0900000000',
       role: 'admin'
     },
     {
       email: 'user1@gmail.com',
-      password: 'user123',
+      password: userHash,
       name: 'User 1',
       phone: '0900000001',
       role: 'user'
@@ -68,6 +71,28 @@ async function ensureSeedUsers() {
   ];
   await User.insertMany(seed);
   console.log('Đã seed tài khoản mặc định vào MongoDB.');
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
+function normalizeEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+function normalizePhone(phone) {
+  return String(phone || '').trim().replace(/\s+/g, '');
+}
+
+function isValidPhoneVN(phone) {
+  // cơ bản: 10-11 số, bắt đầu 0 hoặc +84
+  return /^(0|\+84)\d{9,10}$/.test(phone);
+}
+
+function isValidPassword(pw) {
+  // cơ bản: >= 6 ký tự
+  return typeof pw === 'string' && pw.length >= 6;
 }
 
 // ----- Helpers -----
@@ -92,9 +117,19 @@ app.post('/api/auth/login', async function (req, res) {
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Thiếu email hoặc mật khẩu' });
   }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Email không hợp lệ' });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+  }
   try {
-    const user = await User.findOne({ email: email.toLowerCase(), password }).lean();
+    const user = await User.findOne({ email: normalizeEmail(email) }).lean();
     if (!user) {
+      return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' });
+    }
+    const ok = await bcrypt.compare(password, user.password);
+    if (!ok) {
       return res.status(401).json({ success: false, message: 'Email hoặc mật khẩu không đúng' });
     }
     const { password: _, ...safeUser } = user;
@@ -111,16 +146,30 @@ app.post('/api/auth/register', async function (req, res) {
   if (!name || !email || !phone || !password) {
     return res.status(400).json({ success: false, message: 'Thiếu thông tin bắt buộc' });
   }
+  if (String(name || '').trim().length < 2) {
+    return res.status(400).json({ success: false, message: 'Họ và tên phải có ít nhất 2 ký tự' });
+  }
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Email không hợp lệ' });
+  }
+  const phoneNorm = normalizePhone(phone);
+  if (!isValidPhoneVN(phoneNorm)) {
+    return res.status(400).json({ success: false, message: 'Số điện thoại không hợp lệ' });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ success: false, message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+  }
   try {
-    const existing = await User.findOne({ email: email.toLowerCase() }).lean();
+    const existing = await User.findOne({ email: normalizeEmail(email) }).lean();
     if (existing) {
       return res.status(400).json({ success: false, message: 'Email đã được sử dụng' });
     }
+    const pwHash = await bcrypt.hash(password, 10);
     const user = await User.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
-      phone: phone.trim(),
-      password,
+      email: normalizeEmail(email),
+      phone: phoneNorm,
+      password: pwHash,
       role: 'user'
     });
     const { password: _, ...safeUser } = user.toObject();
